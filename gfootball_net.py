@@ -43,7 +43,8 @@ class NNetWrapper(NeuralNet):
         examples: list of examples, each example is of form (board, pi, v)
         """
         optimizer = optim.Adam(self.nnet.parameters())
-
+        vloss_hist = [] # set list for easy look at value loss and policy loss
+        ploss_hist = []
         for epoch in range(args.epochs):
             print('EPOCH ::: ' + str(epoch+1))
             self.nnet.train()
@@ -74,6 +75,8 @@ class NNetWrapper(NeuralNet):
                 out_pi, out_v = self.nnet(obs)
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
+                vloss_hist.append(l_v)
+                ploss_hist.append(l_pi)
                 total_loss = l_pi + l_v
 
                 # record loss
@@ -103,6 +106,7 @@ class NNetWrapper(NeuralNet):
                             )
                 bar.next()
             bar.finish()
+        return vloss_hist, ploss_hist
 
 
     def predict(self, obs):

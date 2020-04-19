@@ -47,24 +47,33 @@ class Coach():
             mcts = self.mcts
         trainExamples = []
         episodeStep = 0
+        reward = {}
+        for num_agent in range(8):
+            reward['agent_{}'.format(num_agent)] = 0
         while True:
             episodeStep += 1
             temp = int(episodeStep < self.args.tempThreshold)
-            action, pi = mcts.getActionProb(self.obs, temp=temp)
+            action, pi = mcts.getActionProb(self.obs, reward, temp=temp)
             next_obs, reward, done, _ = self.env.step(action)
-            print(reward)
             for num_agent in range(8):
                 trainExamples.append([num_agent, self.obs['agent_{}'.format(num_agent)], pi['agent_{}'.format(num_agent)], None, next_obs['agent_{}'.format(num_agent)]])
             self.obs = next_obs
 
-            # if reward['agent_{}'.format(0)] != 0:
-            for x in trainExamples:
-                if x[0] in range(4):
-                    self.Final_examples.append((x[0], x[1], x[2], reward['agent_{}'.format(x[0])], x[4]))
-                else:
-                    self.Final_examples.append((x[0], x[1], x[2], -reward['agent_{}'.format(x[0])], x[4]))
+            if episodeStep > 4:
+                for x in trainExamples:
+                    if x[0] in range(4):
+                        self.Final_examples.append((x[0], x[1], x[2], 1, x[4]))
+                    else:
+                        self.Final_examples.append((x[0], x[1], x[2], -1, x[4]))
+                return self.Final_examples
 
-            return self.Final_examples
+            elif reward['agent_{}'.format(0)] != 0:
+                for x in trainExamples:
+                    if x[0] in range(4):
+                        self.Final_examples.append((x[0], x[1], x[2], reward['agent_{}'.format(x[0])], x[4]))
+                    else:
+                        self.Final_examples.append((x[0], x[1], x[2], -reward['agent_{}'.format(x[0])], x[4]))
+                return self.Final_examples
 
     def learn(self):
         """
@@ -74,7 +83,8 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-
+        vlosss_hist = []
+        ploss_hist = []
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
             print('------ITER ' + str(i) + '------')
@@ -121,7 +131,9 @@ class Coach():
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             pmcts = MCTS(self.env, self.pnet, self.args)
 
-            self.nnet.train(trainExamples)
+            ploss, vloss = self.nnet.train(trainExamples)
+            ploss_hist += ploss
+            vlosss_hist += vloss
             nmcts = MCTS(self.env, self.nnet, self.args)
 
             print('PITTING AGAINST PREVIOUS VERSION')
@@ -129,21 +141,17 @@ class Coach():
             example_nmcts = self.executeEpisode(mcts2=nmcts)
             pwins = 0
             nwins = 0
-            draws = 0
             for x in example_pmcts:
                 if x[0] in range(4):
                     if x[3] == 1:
                         pwins += 1
-                    else:
-                        draws += 1
 
             for x in example_nmcts:
                 if x[0] in range(4):
                     if x[3] == 1:
                         nwins += 1
-                    else:
-                        draws += 1
-            print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
+
+            print('NEW/PREV WINS : %d / %d' % (nwins, pwins))
             if pwins + nwins == 0 or float(nwins) / (pwins + nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
@@ -151,6 +159,7 @@ class Coach():
                 print('ACCEPTING NEW MODEL')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+        return vlosss_hist, ploss_hist
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'

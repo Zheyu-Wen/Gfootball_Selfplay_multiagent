@@ -19,7 +19,7 @@ class MCTS():
         self.Ps = {}  # stores initial policy (returned by neural net)
         self.Es = {}  # stores value in end of the game
 
-    def getActionProb(self, obs, temp=1):
+    def getActionProb(self, obs, reward, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -31,7 +31,7 @@ class MCTS():
         action_dict = {}
         pi_dict = {}
         for i in range(self.args.numMCTSSims):
-            self.search(obs)
+            self.search(obs, reward)
 
         for agent_num in range(8):
             counts = [self.Nsa[(str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)] if (str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)
@@ -45,13 +45,16 @@ class MCTS():
 
             counts = [x ** (1. / temp) for x in counts]
             counts_sum = float(sum(counts))
-            counts = [x / counts_sum for x in counts]
-            bestA = np.argmax(counts).astype('int')
+            if counts_sum == 0:
+                counts = np.ones(self.env.action_space.n)/self.env.action_space.n
+            else:
+                counts = [x / counts_sum for x in counts]
+            bestA = np.random.choice(len(counts), p=counts)
             action_dict['agent_{}'.format(agent_num)] = bestA
             pi_dict['agent_{}'.format(agent_num)] = counts
         return action_dict, pi_dict
 
-    def search(self, obs):
+    def search(self, obs, reward):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -70,27 +73,34 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-        value_list = []
-        # if done != 0:
-        #     for num_agent in range(8):
-        #         obs_int = obs['agent_{}'.format(num_agent)]
-        #         obs_str = str(obs_int) + '/' + str(num_agent)
-        #         if done != 0:
-        #             self.Es[obs_str] = -reward
-        #         else:
-        #             value_list.append(self.Es[obs_str])
-        #     return value_list
         for num_agent in range(8):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
-            # leaf node
-            self.Ps[obs_str], v = self.nnet.predict(obs_int)
-            sum_Ps_s = np.sum(self.Ps[obs_str])
-            self.Ps[obs_str] /= sum_Ps_s  # renormalize
-            self.Ns[obs_str] = 0
-            value_list.append(-v)
+            if obs_str not in self.Es:
+                self.Es[obs_str] = reward['agent_{}'.format(num_agent)]
 
-        # valids = self.Vs[s]
+        return_value = []
+        if reward['agent_{}'.format(0)] != 0:
+            for num_agent in range(8):
+                return_value.append(reward['agent_{}'.format(num_agent)])
+            return return_value
+
+        return_value = []
+        flag = 0
+        for num_agent in range(8):
+            obs_int = obs['agent_{}'.format(num_agent)]
+            obs_str = str(obs_int) + '/' + str(num_agent)
+            if obs_str not in self.Ps:
+                flag = 1
+                # leaf node
+                self.Ps[obs_str], v = self.nnet.predict(obs_int)
+                sum_Ps_s = np.sum(self.Ps[obs_str])
+                self.Ps[obs_str] /= sum_Ps_s  # renormalize
+                self.Ns[obs_str] = 0
+                return_value.append(-v)
+        if flag == 1:
+            return return_value
+
         best_act = {}
         for num_agent in range(8):
             cur_best = -float('inf')
@@ -98,7 +108,6 @@ class MCTS():
             obs_str = str(obs_int) + '/' + str(num_agent)
             # pick the action with the highest upper confidence bound
             for a in range(self.env.action_space.n):
-                # if valids[a]:
                 if (obs_str, a) in self.Qsa:
                     u = self.Qsa[(obs_str, a)] + self.args.cpuct * self.Ps[obs_str][a] * math.sqrt(self.Ns[obs_str]) / (
                                 1 + self.Nsa[(obs_str, a)])
@@ -109,19 +118,38 @@ class MCTS():
                     cur_best = u
                     best_act['agent_{}'.format(num_agent)] = a
 
-        # next_obs, _, _, _ = self.env.step(best_act)
-        # v = self.search(next_obs, done, reward)
+        next_obs, _, _, _ = self.env.step(best_act)
+        flag2 = 0
+        for num_agent in range(8):
+            if obs['agent_{}'.format(num_agent)].all() == next_obs['agent_{}'.format(num_agent)].all():
+                flag2 += 1
+
+        if flag2 == 8:
+            return_value = []
+            for num_agent in range(8):
+                obs_int = obs['agent_{}'.format(num_agent)]
+                obs_str = str(obs_int) + '/' + str(num_agent)
+                # leaf node
+                self.Ps[obs_str], v = self.nnet.predict(obs_int)
+                sum_Ps_s = np.sum(self.Ps[obs_str])
+                self.Ps[obs_str] /= sum_Ps_s  # renormalize
+                self.Ns[obs_str] = 0
+                return_value.append(-v)
+            return return_value
+
+        return_value = self.search(next_obs, reward)
+
         for num_agent in range(8):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
             if (obs_str, best_act['agent_{}'.format(num_agent)]) in self.Qsa:
                 self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] = \
-                    (self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] * self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] + value_list[num_agent]) \
+                    (self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] * self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] + return_value[num_agent]) \
                     / (self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] + 1)
                 self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] += 1
             else:
-                self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] = value_list[num_agent]
+                self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] = return_value[num_agent]
                 self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] = 1
             self.Ns[obs_str] += 1
 
-        return value_list
+        return return_value

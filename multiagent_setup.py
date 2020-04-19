@@ -88,6 +88,9 @@ class RllibGFootball():
     dones = {'__all__': d}
     return obs, rewards, dones, infos
 
+  def close(self):
+      self.env.close()
+
 
 if __name__ == '__main__':
   args = parser.parse_args()
