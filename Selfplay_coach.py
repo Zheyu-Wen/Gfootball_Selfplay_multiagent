@@ -48,28 +48,28 @@ class Coach():
         trainExamples = []
         episodeStep = 0
         reward = {}
-        for num_agent in range(8):
+        for num_agent in range(self.args.num_agent):
             reward['agent_{}'.format(num_agent)] = 0
         while True:
             episodeStep += 1
             temp = int(episodeStep < self.args.tempThreshold)
             action, pi = mcts.getActionProb(self.obs, reward, temp=temp)
             next_obs, reward, done, _ = self.env.step(action)
-            for num_agent in range(8):
+            for num_agent in range(self.args.num_agent):
                 trainExamples.append([num_agent, self.obs['agent_{}'.format(num_agent)], pi['agent_{}'.format(num_agent)], None, next_obs['agent_{}'.format(num_agent)]])
             self.obs = next_obs
 
             if episodeStep > 4:
                 for x in trainExamples:
-                    if x[0] in range(4):
-                        self.Final_examples.append((x[0], x[1], x[2], 1, x[4]))
-                    else:
+                    if x[0] in range(self.args.left_agent):
                         self.Final_examples.append((x[0], x[1], x[2], -1, x[4]))
+                    else:
+                        self.Final_examples.append((x[0], x[1], x[2], 1, x[4]))
                 return self.Final_examples
 
             elif reward['agent_{}'.format(0)] != 0:
                 for x in trainExamples:
-                    if x[0] in range(4):
+                    if x[0] in range(self.args.left_agent):
                         self.Final_examples.append((x[0], x[1], x[2], reward['agent_{}'.format(x[0])], x[4]))
                     else:
                         self.Final_examples.append((x[0], x[1], x[2], -reward['agent_{}'.format(x[0])], x[4]))
@@ -142,12 +142,12 @@ class Coach():
             pwins = 0
             nwins = 0
             for x in example_pmcts:
-                if x[0] in range(4):
+                if x[0] in range(self.args.left_agent):
                     if x[3] == 1:
                         pwins += 1
 
             for x in example_nmcts:
-                if x[0] in range(4):
+                if x[0] in range(self.args.left_agent):
                     if x[3] == 1:
                         nwins += 1
 

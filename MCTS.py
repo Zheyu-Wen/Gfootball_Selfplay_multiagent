@@ -33,7 +33,7 @@ class MCTS():
         for i in range(self.args.numMCTSSims):
             self.search(obs, reward)
 
-        for agent_num in range(8):
+        for agent_num in range(self.args.num_agent):
             counts = [self.Nsa[(str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)] if (str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)
                                                                           in self.Nsa else 0 for a in range(self.env.action_space.n)]
 
@@ -73,7 +73,7 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-        for num_agent in range(8):
+        for num_agent in range(self.args.num_agent):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
             if obs_str not in self.Es:
@@ -81,13 +81,13 @@ class MCTS():
 
         return_value = []
         if reward['agent_{}'.format(0)] != 0:
-            for num_agent in range(8):
+            for num_agent in range(self.args.num_agent):
                 return_value.append(reward['agent_{}'.format(num_agent)])
             return return_value
 
         return_value = []
         flag = 0
-        for num_agent in range(8):
+        for num_agent in range(self.args.num_agent):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
             if obs_str not in self.Ps:
@@ -102,7 +102,7 @@ class MCTS():
             return return_value
 
         best_act = {}
-        for num_agent in range(8):
+        for num_agent in range(self.args.num_agent):
             cur_best = -float('inf')
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
@@ -120,13 +120,14 @@ class MCTS():
 
         next_obs, _, _, _ = self.env.step(best_act)
         flag2 = 0
-        for num_agent in range(8):
+        for num_agent in range(self.args.num_agent):
             if obs['agent_{}'.format(num_agent)].all() == next_obs['agent_{}'.format(num_agent)].all():
                 flag2 += 1
 
-        if flag2 == 8:
+        if flag2 == self.args.num_agent:
+            print('obs is the same with last round')
             return_value = []
-            for num_agent in range(8):
+            for num_agent in range(self.args.num_agent):
                 obs_int = obs['agent_{}'.format(num_agent)]
                 obs_str = str(obs_int) + '/' + str(num_agent)
                 # leaf node
@@ -139,7 +140,7 @@ class MCTS():
 
         return_value = self.search(next_obs, reward)
 
-        for num_agent in range(8):
+        for num_agent in range(self.args.num_agent):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
             if (obs_str, best_act['agent_{}'.format(num_agent)]) in self.Qsa:

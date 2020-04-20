@@ -33,7 +33,10 @@ def get_args():
     parse.add_argument('--cpuct', type=int, default=1)
     parse.add_argument('--checkpoint', type=str, default='./temp/')
     parse.add_argument('--load_model', type=bool, default=False)
-    parse.add_argument('--numItersForTrainExamplesHistory', type=str, default=20)
+    parse.add_argument('--numItersForTrainExamplesHistory', type=str, default=10)
+    parse.add_argument('--num_agent', type=int, default=8)
+    parse.add_argument('--left_agent', type=int, default=4)
+    parse.add_argument('--right_agent', type=int, default=4)
 
     args = parse.parse_args()
 

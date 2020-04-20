@@ -27,7 +27,8 @@ import ray
 from ray import tune
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.tune.registry import register_env
-
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+import numpy as np
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--num-agents', type=int, default=3)
@@ -36,28 +37,32 @@ parser.add_argument('--num-iters', type=int, default=100000)
 parser.add_argument('--simple', action='store_true')
 
 #class RllibGFootball(MultiAgentEnv):
+def create_single_football_env(args):
+    env = football_env.create_environment(
+        env_name='5_vs_5', stacked=True,
+        logdir='/tmp/rllib_test',
+        write_goal_dumps=False, write_full_episode_dumps=False, render=False,
+        dump_frequency=0,
+        number_of_left_players_agent_controls=args.left_agent,
+        number_of_right_players_agent_controls=args.right_agent,
+        channel_dimensions=(42, 42))
+    return env
 
 class RllibGFootball():
   """An example of a wrapper for GFootball to make it compatible with rllib."""
 
-  def __init__(self, num_agents):
-    self.env = football_env.create_environment(
-        env_name='5_vs_5', stacked=False,
-        logdir='/tmp/rllib_test',
-        write_goal_dumps=False, write_full_episode_dumps=False, render=False,
-        dump_frequency=0,
-        number_of_left_players_agent_controls=num_agents//2,
-        number_of_right_players_agent_controls=num_agents//2,
-        channel_dimensions=(42, 42))
+  def __init__(self, args):
+    self.env = SubprocVecEnv([(lambda _i=i: create_single_football_env(args))
+                              for i in range(1)])
     self.action_space = gym.spaces.Discrete(self.env.action_space.nvec[1])
     self.observation_space = gym.spaces.Box(
         low=self.env.observation_space.low[0],
         high=self.env.observation_space.high[0],
         dtype=self.env.observation_space.dtype)
-    self.num_agents = num_agents
+    self.num_agents = args.num_agent
 
   def reset(self):
-    original_obs = self.env.reset()
+    original_obs = self.env.reset()[0]
     obs = {}
     for x in range(self.num_agents):
       if self.num_agents > 1:
@@ -73,19 +78,19 @@ class RllibGFootball():
     actions = []
     for key, value in sorted(action_dict.items()):
       actions.append(value)
-    o, r, d, i = self.env.step(actions)
+    o, r, d, i = self.env.step(np.array(actions).reshape(1, self.num_agents))
     rewards = {}
     obs = {}
     infos = {}
     for pos, key in enumerate(sorted(action_dict.keys())):
-      infos[key] = i
+      infos[key] = i[0]
       if self.num_agents > 1:
-        rewards[key] = r[pos]
-        obs[key] = o[pos]
+        rewards[key] = r[0][pos]
+        obs[key] = o[0][pos]
       else:
-        rewards[key] = r
-        obs[key] = o
-    dones = {'__all__': d}
+        rewards[key] = r[0]
+        obs[key] = o[0]
+    dones = {'__all__': d[0]}
     return obs, rewards, dones, infos
 
   def close(self):

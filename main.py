@@ -8,8 +8,7 @@ import numpy as np
 
 if __name__ == '__main__':
     args = get_args()
-    num_agents = 8
-    env = RllibGFootball(num_agents)
+    env = RllibGFootball(args)
     nnet = nn(env)
     c = Coach(env, nnet, args)
     vloss_hist, ploss_hist = c.learn()
