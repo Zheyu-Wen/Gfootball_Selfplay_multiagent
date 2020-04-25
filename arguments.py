@@ -1,14 +1,16 @@
 import argparse
 
+
 def get_args():
     parse = argparse.ArgumentParser()
     parse.add_argument('--gamma', type=float, default=0.993, help='the discount factor of RL')
     parse.add_argument('--seed', type=int, default=123, help='the random seeds')
     parse.add_argument('--num-workers', type=int, default=8, help='the number of workers to collect samples')
-    parse.add_argument('--env-name', type=str, default='academy_empty_goal_close', help='the environment name')
-    parse.add_argument('--batch-size', type=int, default=8, help='the batch size of updating')
-    parse.add_argument('--lr', type=float, default=0.00008, help='learning rate of the algorithm')
-    parse.add_argument('--epoch', type=int, default=4, help='the epoch during training')
+    parse.add_argument('--env_name', type=str, default='11_vs_11_competition')
+    parse.add_argument('--batch_size', type=int, default=64, help='the batch size of updating')
+    parse.add_argument('--lr', type=float, default=0.001, help='learning rate of the algorithm')
+    parse.add_argument('--dropout', type=float, default=0.3)
+    parse.add_argument('--epochs', type=int, default=2, help='the epoch during training')
     parse.add_argument('--nsteps', type=int, default=128, help='the steps to collect samples')
     parse.add_argument('--vloss-coef', type=float, default=0.5, help='the coefficient of value loss')
     parse.add_argument('--ent-coef', type=float, default=0.01, help='the entropy loss coefficient')
@@ -23,21 +25,25 @@ def get_args():
     parse.add_argument('--display-interval', type=int, default=10, help='the interval that display log information')
     parse.add_argument('--log-dir', type=str, default='logs/')
     parse.add_argument('--policy_model_dir', type=str, default='policy_model')
-    parse.add_argument('--numIters', type=int, default=100)
-    parse.add_argument('--numEps', type=int, default=10)
+    parse.add_argument('--numIters', type=int, default=2)
+    parse.add_argument('--numEps', type=int, default=1)
     parse.add_argument('--tempThreshold', type=int, default=15)
     parse.add_argument('--updateThreshold', type=float, default=0.6)
     parse.add_argument('--maxlenOfQueue', type=int, default=200000)
-    parse.add_argument('--numMCTSSims', type=int, default=25)
+    parse.add_argument('--numMCTSSims', type=int, default=5)
     parse.add_argument('--gfootballCompare', type=int, default=10)
     parse.add_argument('--cpuct', type=int, default=1)
     parse.add_argument('--checkpoint', type=str, default='./temp/')
     parse.add_argument('--load_model', type=bool, default=False)
     parse.add_argument('--numItersForTrainExamplesHistory', type=str, default=10)
-    parse.add_argument('--num_agent', type=int, default=8)
-    parse.add_argument('--left_agent', type=int, default=4)
-    parse.add_argument('--right_agent', type=int, default=4)
+    parse.add_argument('--num_agent', type=int, default=2)
+    parse.add_argument('--left_agent', type=int, default=1)
+    parse.add_argument('--right_agent', type=int, default=1)
+    parse.add_argument('--num_channels', type=int, default=512)
+    parse.add_argument('--render', type=bool, default=False)
+    # args = parse.parse_args()
 
-    args = parse.parse_args()
+    args, unknown = parse.parse_known_args()
 
     return args
+

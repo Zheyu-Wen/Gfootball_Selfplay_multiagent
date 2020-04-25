@@ -6,6 +6,7 @@ from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
 from pickle import Pickler, Unpickler
 from random import shuffle
+import random
 
 class Coach():
     """
@@ -24,7 +25,6 @@ class Coach():
         self.obs = self.env.reset()
         self.Final_examples = []
 
-
     def executeEpisode(self, mcts2=None):
         """
         This function executes one episode of self-play, starting with player 1.
@@ -41,10 +41,11 @@ class Coach():
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
-        if mcts2!=None:
+        if mcts2 != None:
             mcts = mcts2
         else:
             mcts = self.mcts
+
         trainExamples = []
         episodeStep = 0
         reward = {}
@@ -56,15 +57,19 @@ class Coach():
             action, pi = mcts.getActionProb(self.obs, reward, temp=temp)
             next_obs, reward, done, _ = self.env.step(action)
             for num_agent in range(self.args.num_agent):
-                trainExamples.append([num_agent, self.obs['agent_{}'.format(num_agent)], pi['agent_{}'.format(num_agent)], None, next_obs['agent_{}'.format(num_agent)]])
+                trainExamples.append(
+                    [num_agent, self.obs['agent_{}'.format(num_agent)], pi['agent_{}'.format(num_agent)], None,
+                     next_obs['agent_{}'.format(num_agent)]])
             self.obs = next_obs
 
-            if episodeStep > 4:
+            if episodeStep > 2:
+                # print('the game not ended but we have to use the existed example to train')
+                r = random.random()
                 for x in trainExamples:
                     if x[0] in range(self.args.left_agent):
-                        self.Final_examples.append((x[0], x[1], x[2], -1, x[4]))
+                        self.Final_examples.append((x[0], x[1], x[2], -r, x[4]))
                     else:
-                        self.Final_examples.append((x[0], x[1], x[2], 1, x[4]))
+                        self.Final_examples.append((x[0], x[1], x[2], r, x[4]))
                 return self.Final_examples
 
             elif reward['agent_{}'.format(0)] != 0:

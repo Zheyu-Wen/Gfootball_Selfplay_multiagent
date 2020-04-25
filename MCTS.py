@@ -34,19 +34,15 @@ class MCTS():
             self.search(obs, reward)
 
         for agent_num in range(self.args.num_agent):
-            counts = [self.Nsa[(str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)] if (str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)
-                                                                          in self.Nsa else 0 for a in range(self.env.action_space.n)]
-
-            if temp == 0:
-                bestA = np.argmax(counts)
-                probs = [0] * len(counts)
-                probs[bestA] = 1
-                return probs
-
-            counts = [x ** (1. / temp) for x in counts]
+            counts = [self.Nsa[(str(obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)] if (str(
+                obs['agent_{}'.format(agent_num)]) + '/' + str(agent_num), a)
+                                                                                                      in self.Nsa else 0
+                      for a in range(self.env.action_space.n)]
+            if temp != 0:
+                counts = [x ** (1. / temp) for x in counts]
             counts_sum = float(sum(counts))
             if counts_sum == 0:
-                counts = np.ones(self.env.action_space.n)/self.env.action_space.n
+                counts = np.ones(self.env.action_space.n) / self.env.action_space.n
             else:
                 counts = [x / counts_sum for x in counts]
             bestA = np.random.choice(len(counts), p=counts)
@@ -54,7 +50,7 @@ class MCTS():
             pi_dict['agent_{}'.format(agent_num)] = counts
         return action_dict, pi_dict
 
-    def search(self, obs, reward):
+    def search(self, obs, reward, current_search=0):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -79,27 +75,31 @@ class MCTS():
             if obs_str not in self.Es:
                 self.Es[obs_str] = reward['agent_{}'.format(num_agent)]
 
-        return_value = []
         if reward['agent_{}'.format(0)] != 0:
+            return_value = []
             for num_agent in range(self.args.num_agent):
                 return_value.append(reward['agent_{}'.format(num_agent)])
             return return_value
 
-        return_value = []
         flag = 0
+        current_search += 1
         for num_agent in range(self.args.num_agent):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
-            if obs_str not in self.Ps:
+            if obs_str not in self.Ps or current_search > 200:
                 flag = 1
-                # leaf node
+        # leaf node
+        if flag == 1:
+            return_value = []
+            for num_agent in range(self.args.num_agent):
+                obs_int = obs['agent_{}'.format(num_agent)]
+                obs_str = str(obs_int) + '/' + str(num_agent)
                 self.Ps[obs_str], v = self.nnet.predict(obs_int)
                 sum_Ps_s = np.sum(self.Ps[obs_str])
                 self.Ps[obs_str] /= sum_Ps_s  # renormalize
                 self.Ns[obs_str] = 0
                 return_value.append(-v)
-        if flag == 1:
-            return return_value
+                return return_value
 
         best_act = {}
         for num_agent in range(self.args.num_agent):
@@ -110,7 +110,7 @@ class MCTS():
             for a in range(self.env.action_space.n):
                 if (obs_str, a) in self.Qsa:
                     u = self.Qsa[(obs_str, a)] + self.args.cpuct * self.Ps[obs_str][a] * math.sqrt(self.Ns[obs_str]) / (
-                                1 + self.Nsa[(obs_str, a)])
+                            1 + self.Nsa[(obs_str, a)])
                 else:
                     u = self.args.cpuct * self.Ps[obs_str][a] * math.sqrt(self.Ns[obs_str] + EPS)  # Q = 0 ?
 
@@ -118,14 +118,18 @@ class MCTS():
                     cur_best = u
                     best_act['agent_{}'.format(num_agent)] = a
 
-        next_obs, _, _, _ = self.env.step(best_act)
+        next_obs, reward, done, _ = self.env.step(best_act)
+        if done['__all__']:
+            next_obs = self.env.reset()
+
         flag2 = 0
         for num_agent in range(self.args.num_agent):
-            if obs['agent_{}'.format(num_agent)].all() == next_obs['agent_{}'.format(num_agent)].all():
+            if not np.array_equal(obs['agent_{}'.format(num_agent)], next_obs['agent_{}'.format(num_agent)]):
+                # print('obs in changing', 'the difference between the obs is: {}'.format(np.sum(obs['agent_{}'.format(num_agent)] - next_obs['agent_{}'.format(num_agent)])))
                 flag2 += 1
 
-        if flag2 == self.args.num_agent:
-            print('obs is the same with last round')
+        if flag2 == 0:
+            # print('obs is the same with last round')
             return_value = []
             for num_agent in range(self.args.num_agent):
                 obs_int = obs['agent_{}'.format(num_agent)]
@@ -138,14 +142,15 @@ class MCTS():
                 return_value.append(-v)
             return return_value
 
-        return_value = self.search(next_obs, reward)
+        return_value = self.search(next_obs, reward, current_search)
 
         for num_agent in range(self.args.num_agent):
             obs_int = obs['agent_{}'.format(num_agent)]
             obs_str = str(obs_int) + '/' + str(num_agent)
             if (obs_str, best_act['agent_{}'.format(num_agent)]) in self.Qsa:
                 self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] = \
-                    (self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] * self.Qsa[(obs_str, best_act['agent_{}'.format(num_agent)])] + return_value[num_agent]) \
+                    (self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] * self.Qsa[
+                        (obs_str, best_act['agent_{}'.format(num_agent)])] + return_value[num_agent]) \
                     / (self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] + 1)
                 self.Nsa[(obs_str, best_act['agent_{}'.format(num_agent)])] += 1
             else:

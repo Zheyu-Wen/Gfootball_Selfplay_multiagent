@@ -30,11 +30,11 @@ args = dotdict({
 })
 
 class NNetWrapper(NeuralNet):
-    def __init__(self, env):
+    def __init__(self, env, args_):
         self.nnet = gfnet(env, args)
         self.obs_width, self.obs_height, self.obs_channel = env.observation_space.shape
         self.action_size = env.action_space.n
-
+        self.args = args_
         if args.cuda:
             self.nnet.cuda()
 
@@ -106,6 +106,7 @@ class NNetWrapper(NeuralNet):
                             )
                 bar.next()
             bar.finish()
+            torch.save(self.nnet.state_dict(), self.args.env_name + '.pth')
         return vloss_hist, ploss_hist
 
 
@@ -153,3 +154,9 @@ class NNetWrapper(NeuralNet):
         map_location = None if args.cuda else 'cpu'
         checkpoint = torch.load(filepath, map_location=map_location)
         self.nnet.load_state_dict(checkpoint['state_dict'])
+
+    def state_dict(self):
+        return self.nnet.state_dict()
+
+    def load_state_dict(self, path):
+        self.nnet.load_state_dict(torch.load(path))
