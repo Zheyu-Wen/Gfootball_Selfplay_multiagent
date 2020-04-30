@@ -8,4 +8,4 @@ since so that you don't have to install anything yourself on you computer and ca
 However, if you want to render the game, it needs you to install gfootball following the guidance on the following page.
 https://github.com/google-research/football
 
-![img](https://github.com/CoderNoMercy/Gfootball_Selfplay_multiagent/tree/master/result/football_gif.gif)
+![image](https://github.com/CoderNoMercy/Gfootball_Selfplay_multiagent/tree/master/result/football_gif.gif)
