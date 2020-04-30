@@ -1,7 +1,7 @@
 # Gfootball_Selfplay_multiagent
 I recommand you to use my colab version
 
-https://colab.research.google.com/drive/1YxVp-btHHyAwXiMkkI8QzR_CCw2nFHyD
+https://colab.research.google.com/drive/1vSUXYRTLVhzOXPNBN2F77UbyL7hMk5PF
 
 since so that you don't have to install anything yourself on you computer and can see the training process.
 
